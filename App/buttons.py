@@ -12,11 +12,10 @@ if TYPE_CHECKING:
     from main_window import MainWindow
 
 
-class Button(QPushButton): 
-    def __init__(self, text: str):
-        super().__init__(text) 
+class Button(QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.configStyle()
-
 
     def configStyle(self):
         font = self.font()
@@ -26,15 +25,18 @@ class Button(QPushButton):
 
 
 class ButtonsGrid(QGridLayout):
-    def __init__(self, display: 'Display', info: 'Info', window: 'MainWindow') -> None:
-        super().__init__() 
+    def __init__(
+            self, display: 'Display', info: 'Info', window: 'MainWindow',
+            *args, **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
 
         self._gridMask = [
             ['C', '⌫', '^', '/'],
             ['7', '8', '9', '*'],
             ['4', '5', '6', '-'],
             ['1', '2', '3', '+'],
-            [' ',  '0', '.', '='],
+            ['',  '0', '.', '='],
         ]
         self.display = display
         self.info = info
@@ -57,26 +59,23 @@ class ButtonsGrid(QGridLayout):
         self._equation = value
         self.info.setText(value)
 
+    def vouApagarVocê(self):
+        print('Signal recebido por "vouApagarVocê" em', type(self).__name__)
+
     def _makeGrid(self):
+        self.display.eqRequested.connect(self.vouApagarVocê)
+
         for rowNumber, rowData in enumerate(self._gridMask):
             for colNumber, buttonText in enumerate(rowData):
-                if isEmpty(buttonText):
-                    continue
-
                 button = Button(buttonText)
 
-                if isNumOrDot(buttonText):
-                    button.setProperty('cssClass', 'numberButton')
-                    slot = self._makeSlot(self._insertButtonTextToDisplay, button)
-                    self._connectButtonClicked(button, slot)
-                else:
+                if not isNumOrDot(buttonText) and not isEmpty(buttonText):
                     button.setProperty('cssClass', 'specialButton')
                     self._configSpecialButton(button)
 
-                button.style().unpolish(button)
-                button.style().polish(button)
-
                 self.addWidget(button, rowNumber, colNumber)
+                slot = self._makeSlot(self._insertButtonTextToDisplay, button)
+                self._connectButtonClicked(button, slot)
 
     def _connectButtonClicked(self, button, slot):
         button.clicked.connect(slot)  # type: ignore
@@ -87,21 +86,20 @@ class ButtonsGrid(QGridLayout):
         if text == 'C':
             self._connectButtonClicked(button, self._clear)
 
-        elif text == '⌫':
-            if hasattr(self.display, 'backspace'):
-                self._connectButtonClicked(button, self.display.backspace)
+        if text == '⌫':
+            self._connectButtonClicked(button, self.display.backspace)
 
-        elif text in '+-/*^':
+        if text in '+-/*^':
             self._connectButtonClicked(
                 button,
                 self._makeSlot(self._operatorClicked, button)
             )
 
-        elif text == '=':
+        if text == '=':
             self._connectButtonClicked(button, self._eq)
 
     def _makeSlot(self, func, *args, **kwargs):
-        @Slot(bool)
+        @ Slot(bool)
         def realSlot(_):
             func(*args, **kwargs)
         return realSlot
@@ -123,14 +121,18 @@ class ButtonsGrid(QGridLayout):
         self.display.clear()
 
     def _operatorClicked(self, button):
-        buttonText = button.text()
-        displayText = self.display.text()
-        self.display.clear()
+        buttonText = button.text()  # +-/* (etc...)
+        displayText = self.display.text()  # Deverá ser meu número _left
+        self.display.clear()  # Limpa o display
 
+        # Se a pessoa clicou no operador sem
+        # configurar qualquer número
         if not isValidNumber(displayText) and self._left is None:
             self._showError('Você não digitou nada.')
             return
 
+        # Se houver algo no número da esquerda,
+        # não fazemos nada. Aguardaremos o número da direita.
         if self._left is None:
             self._left = float(displayText)
 
@@ -145,37 +147,26 @@ class ButtonsGrid(QGridLayout):
             return
 
         self._right = float(displayText)
+        self.equation = f'{self._left} {self._op} {self._right}'
         result = 'error'
 
         try:
-            if self._op == '^':
+            if '^' in self.equation and isinstance(self._left, float):
                 result = math.pow(self._left, self._right)
             else:
-                expression = f'{self._left} {self._op} {self._right}'
-                result = eval(expression)
-
+                result = eval(self.equation)
         except ZeroDivisionError:
             self._showError('Divisão por zero.')
-            result = 'error'
         except OverflowError:
             self._showError('Essa conta não pode ser realizada.')
-            result = 'error'
-        except Exception:
-            self._showError('Erro desconhecido.')
-            result = 'error'
 
         self.display.clear()
+        self.info.setText(f'{self.equation} = {result}')
+        self._left = result
+        self._right = None
 
         if result == 'error':
             self._left = None
-            self._op = None
-            self.equation = self._equationInitialValue
-            return
-
-        self.info.setText(f'{self._left} {self._op} {self._right} = {result}')
-        self._left = result
-        self._right = None
-        self._op = None
 
     def _makeDialog(self, text):
         msgBox = self.window.makeMsgBox()
