@@ -16,6 +16,8 @@ class Display(QLineEdit):
         super().__init__(*args, **kwargs)
         self.configStyle()
 
+        self.setReadOnly(True)
+
     def configStyle(self):
         margins = [TEXT_MARGIN for _ in range(4)]
         self.setStyleSheet(f'font-size: {BIG_FONT_SIZE}px;')
