@@ -90,7 +90,6 @@ class ButtonsGrid(QGridLayout):
         if text == '⌫':
             self._connectButtonClicked(button, self.display.backspace)
 
-
         if text in '+-/*^':
             self._connectButtonClicked(
                 button,
@@ -99,6 +98,8 @@ class ButtonsGrid(QGridLayout):
 
         if text == '=':
             self._connectButtonClicked(button, self._eq)
+
+        self._connectButtonClicked(button, self.display.setFocus)
 
     @Slot()
     def _makeSlot(self, func, *args, **kwargs):
@@ -109,6 +110,7 @@ class ButtonsGrid(QGridLayout):
 
     @Slot()
     def _insertToDisplay(self, text):
+        self.display.setFocus()
         newDisplayValue = self.display.text() + text
 
         if not isValidNumber(newDisplayValue):
@@ -147,7 +149,7 @@ class ButtonsGrid(QGridLayout):
     def _eq(self):
         displayText = self.display.text()
 
-        if not isValidNumber(displayText):
+        if not isValidNumber(displayText) or self._left is None:
             self._showError('Conta incompleta.')
             return
 
@@ -156,7 +158,7 @@ class ButtonsGrid(QGridLayout):
         result = 'error'
 
         try:
-            if '^' in self.equation and isinstance(self._left, float):
+            if '^' in self.equation and isinstance(self._left, int | float):
                 result = math.pow(self._left, self._right)
             else:
                 result = eval(self.equation)
