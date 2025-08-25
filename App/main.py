@@ -6,10 +6,11 @@ from info import Info
 from main_window import MainWindow
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from styles import setupTheme
+from styles import setupTheme #type:ignore 
 from variables import WINDOW_ICON_PATH
 
 if __name__ == '__main__':
+
     # Cria a aplicação
     app = QApplication(sys.argv)
     setupTheme(app)
